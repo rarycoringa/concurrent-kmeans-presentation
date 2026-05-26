@@ -1,0 +1,85 @@
+\section{Introdução}
+
+\begin{frame}{Algoritmo K-Means}
+    Algoritmo de agrupamento não supervisionado que particiona $N$ pontos em $k$ grupos.
+
+    \medskip
+    \textbf{Duas fases por iteração:}
+    \begin{enumerate}
+        \item \textbf{Atribuição} — cada ponto é atribuído ao centróide mais próximo
+              (distância Euclidiana)
+        \item \textbf{Atualização} — cada centróide é recomputado como a média dos seus
+              pontos atribuídos
+    \end{enumerate}
+
+    \medskip
+    Repete até os centróides estabilizarem (deslocamento máximo $\leq$ tolerância) ou
+    \texttt{maxIter} ser atingido.
+
+    \medskip
+    \textbf{Complexidade por iteração:} $O(N \cdot k \cdot d)$
+    \begin{itemize}
+        \item $N$ = número de pontos \quad $k$ = clusters \quad $d$ = dimensões
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Dataset e Configuração}
+    \begin{columns}
+        \column{0.5\textwidth}
+        \textbf{Dataset}
+        \begin{itemize}
+            \item $\approx$5,75 milhões de linhas
+            \item 38 atributos numéricos
+            \item $\approx$1,75 GB em memória
+            \item Pedidos de e-commerce (sintético)
+        \end{itemize}
+
+        \column{0.5\textwidth}
+        \textbf{Parâmetros de agrupamento}
+        \begin{itemize}
+            \item $k = 10$ clusters
+            \item \texttt{maxIter} = 20 (execução completa)
+            \item \texttt{tolerance} = $10^{-6}$
+            \item JDK 25.0.1, 16 CPUs lógicas
+        \end{itemize}
+    \end{columns}
+
+    \medskip
+    \begin{table}
+        \centering
+        \tiny
+        \begin{tabular}{lrrrrrr}
+            \toprule
+            \textbf{order\_id} & \textbf{latitude} & \textbf{longitude} & \textbf{seller\_rating} & \textbf{shipping\_fee} & \textbf{items\_count} & \textbf{delivery\_hours} \\
+            \midrule
+            O-00000001 & 54.8877 & $-$1.6479 & 4.46 &  0.60 & 4 &  53 \\
+            O-00000002 & 51.4400 & $-$0.0266 & 4.30 &  9.65 & 8 &  58 \\
+            O-00000003 & 51.4070 & $-$2.4147 & 4.52 &  5.94 & 5 & 122 \\
+            \bottomrule
+        \end{tabular}
+        \caption*{\scriptsize Linhas de amostra (4 colunas de ID excluídas dos atributos; 38 colunas numéricas utilizadas)}
+    \end{table}
+\end{frame}
+
+\begin{frame}{Estratégia de Benchmarking}
+    \begin{table}
+        \centering
+        \begin{tabular}{lll}
+            \toprule
+            \textbf{Ferramenta} & \textbf{Finalidade} & \textbf{Config} \\
+            \midrule
+            JCStress & Detecção de race condition & 6 forks, 5 $\times$ 1s \\
+            JMH      & Microbenchmark (por operação) & 1 fork, 1wu + 3$\times$10s \\
+            JMeter   & Macrobenchmark (throughput) & 120s + 30s ramp \\
+            JFR      & Perfil de CPU e GC & \texttt{settings=profile} \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+
+    \medskip
+    \begin{itemize}
+        \item JMH mede custo de computação isolado (B1--B4)
+        \item JMeter mede throughput do sistema sob carga concorrente
+        \item JFR revela onde o tempo é efetivamente gasto
+    \end{itemize}
+\end{frame}

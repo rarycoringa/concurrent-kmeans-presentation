@@ -1,0 +1,59 @@
+\section{Implementação Serial}
+
+\begin{frame}{Serial --- Como Funciona}
+    Uma única thread trata tudo sequencialmente:
+
+    \medskip
+    \begin{enumerate}
+        \item Lê uma linha do CSV
+        \item Converte doubles (\texttt{FloatingDecimal.parseDouble})
+        \item Encontra o centróide mais próximo (loop \texttt{squaredDistance})
+        \item Acumula somas e contagens em arrays compartilhados
+        \item Repete para todos os 5,75 milhões de pontos
+        \item Recomputa centróides, verifica convergência
+    \end{enumerate}
+
+    \medskip
+    Nenhuma sincronização necessária --- uma thread, sem estado compartilhado.
+\end{frame}
+
+\begin{frame}{Serial --- Resultados JMH}
+    \begin{table}
+        \centering
+        \begin{tabular}{llrr}
+            \toprule
+            \textbf{ID} & \textbf{Benchmark} & \textbf{Score} & \textbf{Unidade} \\
+            \midrule
+            B1 & Execução completa ($k$=10, maxIter=20)   & 212.57 $\pm$ 34.48 & s/op \\
+            B2 & Por iteração ($k$=10, 5 iter)            &  60.05 $\pm$  2.46 & s/op \\
+            B3 & \texttt{closestCentroid}                 &  96.82             & ns/op \\
+            B4 & \texttt{squaredDistance}                 &   9.31             & ns/op \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+
+    \medskip
+    Cada iteração leva $\approx$60 s --- maior parte aguardando o disco e fazendo parsing.
+\end{frame}
+
+\begin{frame}{Serial --- Perfil JFR}
+    \begin{table}
+        \centering
+        \begin{tabular}{lrl}
+            \toprule
+            \textbf{Método} & \textbf{CPU \%} & \textbf{Categoria} \\
+            \midrule
+            \texttt{FloatingDecimal.parseDouble}  & \cellcolor{red!20}$\approx$87\% & parsing de CSV \\
+            \texttt{String.split}                 &                   ---           & parsing de CSV \\
+            \texttt{BufferedReader.readLine}       &                   ---           & I/O \\
+            \texttt{KMeans.closestCentroid}        & \cellcolor{green!20}$\approx$13\% & Algoritmo \\
+            \texttt{KMeans.squaredDistance}        &                   ---           & Algoritmo \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+
+    \medskip
+    \alert{87\% do tempo é gasto no parsing de CSV, não na computação.}
+
+    Paralelizar os 13\% sem tratar os 87\% não vai ajudar.
+\end{frame}
