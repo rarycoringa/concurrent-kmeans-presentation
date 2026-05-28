@@ -1,0 +1,65 @@
+\section{Implementação Erlang}
+
+\begin{frame}{Por que Não há Versão Serial}
+    \begin{itemize}
+        \item Erlang é construída em torno do modelo de atores: processos são a
+              unidade fundamental de execução
+        \item Toda computação significativa acontece por troca de mensagens
+        \item Escrever um K-Means verdadeiramente serial forçaria a ignorar os
+              mecanismos centrais da linguagem
+    \end{itemize}
+
+    \vspace{0.5em}
+    \begin{block}{Decisão}
+        A implementação Erlang parte diretamente da versão concorrente com dados em memória,
+        o equivalente à v3 em Java.
+    \end{block}
+\end{frame}
+
+\begin{frame}{Como Funciona --- Modelo de Atores}
+    \begin{itemize}
+        \item Dataset em memória, \alert{16 workers} BEAM --- um por scheduler disponível
+        \item Cada worker mantém seu pedaço dos dados localmente desde a inicialização
+    \end{itemize}
+
+    \vspace{0.5em}
+    \textbf{A cada iteração:}
+    \begin{enumerate}
+        \item Processo principal envia os centróides para cada worker
+        \item Workers calculam o cluster mais próximo e acumulam resultados parciais
+        \item Workers enviam os parciais de volta ao processo principal
+        \item Processo principal agrega e recalcula os centróides
+    \end{enumerate}
+\end{frame}
+
+\begin{frame}{Resultados Erlang vs Java v3}
+    \begin{center}
+    \begin{tabular}{lrrr}
+        \toprule
+        \textbf{Benchmark} & \textbf{Java v3} & \textbf{Erlang} & \textbf{Fator} \\
+        \midrule
+        \texttt{closestCentroid} & 96 ns & 15.976 ns & \alert{165$\times$} \\
+        \texttt{squaredDistance} & 9 ns  &  1.053 ns & \alert{113$\times$} \\
+        5 iterações completas    & 1,6 s & 106,3 s   & \alert{66$\times$} \\
+        \bottomrule
+    \end{tabular}
+    \end{center}
+
+    \vspace{0.8em}
+    Ambas as implementações usam dados em memória e 16 workers. \\
+    A diferença é inteiramente na \alert{velocidade da aritmética por ponto}.
+\end{frame}
+
+\begin{frame}{Por que Erlang é Mais Lento?}
+    \begin{itemize}
+        \item \textbf{Aritmética:} JVM otimiza loops com vetorização SIMD; BEAM processa cada valor individualmente
+        \item \textbf{Ociosidade:} schedulers com \alert{45,7\%} de utilização --- workers ficam parados enquanto o processo principal agrega os resultados
+        \item \textbf{GC:} \alert{2,13 milhões} de coletas (Erlang) vs \alert{60} (Java) --- cada ponto processado gera objetos temporários na BEAM
+    \end{itemize}
+
+    \vspace{0.8em}
+    \begin{block}{Estrutural, não acidental}
+        Esses custos são inerentes ao modelo de atores para cargas CPU-bound.
+        Erlang não foi projetada para este tipo de workload.
+    \end{block}
+\end{frame}

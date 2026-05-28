@@ -1,0 +1,53 @@
+\section{Concorrente v3 --- Dados em Memória}
+
+\begin{frame}{A Mudança Decisiva}
+    \begin{alertblock}{Problema identificado}
+        A cada iteração, o algoritmo relê e converte $\approx$1 GB de CSV.
+        Isso acontece 3 a 20 vezes por execução.
+    \end{alertblock}
+
+    \vspace{0.5em}
+    \textbf{Solução:} carregar todo o dataset em memória \alert{uma única vez} antes das iterações.
+
+    \vspace{0.5em}
+    \begin{itemize}
+        \item Dataset lido na inicialização e mantido como array de doubles
+        \item Iterações operam diretamente sobre o array --- sem disco
+        \item Array dividido em $N$ partes (uma por processador lógico)
+        \item Workers processam em paralelo, coordenador aguarda todos com \texttt{CountDownLatch}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Resultados v3 --- Microbenchmark}
+    \begin{itemize}
+        \item Custo por iteração: 60 s $\to$ \alert{1,6 s} (\alert{37$\times$} mais rápido)
+        \item Variância colapsa: $\pm$227 s $\to$ $\pm$0,17 s --- iterações previsíveis
+        \item Perfil JFR: nenhum evento de leitura de arquivo durante o clustering
+    \end{itemize}
+
+    \vspace{0.8em}
+    \textbf{Trade-off de memória}
+    \begin{itemize}
+        \item Heap: 250 MB $\to$ \alert{2,7 GB}
+        \item GC: 1.000 coletas $\to$ apenas 60 coletas
+        \item Dataset precisa caber inteiro na RAM
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Resultados v3 --- Macrobenchmark}
+    \begin{itemize}
+        \item 1 thread JMeter: 1,6 $\to$ \alert{52,5 exec/min} (\alert{32$\times$})
+        \item 16 threads JMeter: 4,5 $\to$ \alert{62,3 exec/min} (\alert{14$\times$})
+    \end{itemize}
+
+    \vspace{0.8em}
+    \begin{block}{Por que o ganho diminui com mais threads?}
+        Com tudo em memória, cada execução já ocupa todos os núcleos internamente.
+        Threads JMeter adicionais competem pelos mesmos recursos.
+    \end{block}
+
+    \vspace{0.5em}
+    \begin{alertblock}{Comparação direta com a versão serial}
+        Serial: 1,56 exec/min com 1 thread \quad$\to$\quad v3: 52,5 exec/min com 1 thread
+    \end{alertblock}
+\end{frame}

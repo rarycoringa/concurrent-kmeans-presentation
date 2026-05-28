@@ -1,0 +1,73 @@
+\section{Concorrente v2 --- Lotes e Workers}
+
+\begin{frame}{O que Mudou na v2}
+    \begin{itemize}
+        \item Pontos agrupados em lotes de 5.000 e distribuídos para workers em paralelo
+        \item Cada worker acumula em arrays \textbf{locais} --- sem sincronização necessária
+        \item Thread coordenadora reduz os resultados após todos os workers terminarem
+    \end{itemize}
+
+    \vspace{0.5em}
+    Três variantes testadas:
+    \begin{itemize}
+        \item \textbf{v2-platform} --- workers com threads reais do sistema operacional
+        \item \textbf{v2-virtual} --- workers com virtual threads (Java 21+)
+        \item \textbf{v2-hybrid} --- workers reais + coordenador virtual
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Resultados v2 --- Microbenchmark}
+    \begin{center}
+    \begin{tabular}{lrr}
+        \toprule
+        \textbf{Abordagem} & \textbf{B2 (s/op)} & \textbf{Erro} \\
+        \midrule
+        Serial       & 60,05 & $\pm$2,46 \\
+        v2-platform  & 60,69 & $\pm$6,41 \\
+        v2-virtual   & 71,61 & \alert{$\pm$227,05} \\
+        v2-hybrid    & 60,44 & $\pm$5,33 \\
+        \bottomrule
+    \end{tabular}
+    \end{center}
+
+    \vspace{0.5em}
+    \begin{alertblock}{Nenhuma melhoria no tempo por iteração}
+        A leitura sequencial do CSV continua dominando. Paralelizar apenas a aritmética
+        (8\% do tempo) não move o resultado.
+    \end{alertblock}
+\end{frame}
+
+\begin{frame}{Resultados v2 --- Macrobenchmark por Coletor}
+    Throughput por coletor de GC (v2-platform, mesma tendência nas outras variantes):
+
+    \vspace{0.6em}
+    \begin{center}
+    \begin{tabular}{lrr}
+        \toprule
+        \textbf{Coletor} & \textbf{1 thread} & \textbf{16 threads} \\
+        \midrule
+        G1GC       & 1,65 exec/min & 4,49 exec/min \\
+        ZGC        & 1,41 exec/min & 4,13 exec/min \\
+        ParallelGC & 1,60 exec/min & 4,39 exec/min \\
+        \bottomrule
+    \end{tabular}
+    \end{center}
+
+    \vspace{0.6em}
+    ZGC levemente atrás, ParallelGC e G1GC equivalentes --- \alert{mesmo padrão da versão serial}.
+    Nenhum coletor resolve o gargalo real: a leitura do CSV.
+\end{frame}
+
+\begin{frame}{Resultados v2 --- Condições de Corrida (JCStress)}
+    \begin{itemize}
+        \item Leituras concorrentes dos centróides: \textcolor{green!60!black}{\cmark\ seguras}
+        \item Escrita em array compartilhado sem proteção: \textcolor{red}{\xmark\ até 28\% de atualizações perdidas}
+        \item Solução adotada: cada worker acumula em arrays próprios
+    \end{itemize}
+
+    \vspace{1em}
+    \begin{block}{Insight da v2-hybrid}
+        O coordenador virtual suspende durante leitura de arquivo, tornando o CSV
+        invisível ao profiler --- revelando que o problema era a leitura, não a coordenação.
+    \end{block}
+\end{frame}

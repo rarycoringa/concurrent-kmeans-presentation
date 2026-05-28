@@ -1,85 +1,74 @@
 \section{Introdução}
 
-\begin{frame}{Algoritmo K-Means}
-    Algoritmo de agrupamento não supervisionado que particiona $N$ pontos em $k$ grupos.
-
-    \medskip
-    \textbf{Duas fases por iteração:}
-    \begin{enumerate}
-        \item \textbf{Atribuição} — cada ponto é atribuído ao centróide mais próximo
-              (distância Euclidiana)
-        \item \textbf{Atualização} — cada centróide é recomputado como a média dos seus
-              pontos atribuídos
-    \end{enumerate}
-
-    \medskip
-    Repete até os centróides estabilizarem (deslocamento máximo $\leq$ tolerância) ou
-    \texttt{maxIter} ser atingido.
-
-    \medskip
-    \textbf{Complexidade por iteração:} $O(N \cdot k \cdot d)$
+\begin{frame}{O Algoritmo K-Means}
     \begin{itemize}
-        \item $N$ = número de pontos \quad $k$ = clusters \quad $d$ = dimensões
+        \item Agrupa \(N\) pontos em \(k\) clusters, associando cada ponto ao centróide mais próximo
+        \item Opera em duas etapas que se repetem:
+            \begin{itemize}
+                \item \textbf{Atribuição} — cada ponto é associado ao centróide mais próximo
+                \item \textbf{Atualização} — cada centróide é recalculado como média dos seus pontos
+            \end{itemize}
+        \item Para quando os centróides estabilizam ou o limite de iterações é atingido
+        \item A etapa de atribuição é \alert{independente entre pontos} --- candidato natural à paralelização
     \end{itemize}
 \end{frame}
 
-\begin{frame}{Dataset e Configuração}
+\begin{frame}{Dataset}
+    \begin{itemize}
+        \item Pedidos sintéticos gerados artificialmente
+        \item \alert{$\approx$5,75 milhões} de linhas $\times$ 38 features numéricas
+        \item Tamanho em disco: $\approx$1 GB
+        \item Tamanho carregado em memória: $\approx$1,75 GB
+    \end{itemize}
+
+    \vspace{0.5em}
+    \begin{block}{Parâmetros fixos nos experimentos}
+        $k = 10$ clusters \quad $\cdot$ \quad \texttt{maxIter} = 3--20 \quad $\cdot$ \quad 38 dimensões
+    \end{block}
+\end{frame}
+
+\begin{frame}{Ambiente de Execução}
     \begin{columns}
-        \column{0.5\textwidth}
-        \textbf{Dataset}
-        \begin{itemize}
-            \item $\approx$5,75 milhões de linhas
-            \item 38 atributos numéricos
-            \item $\approx$1,75 GB em memória
-            \item Pedidos de e-commerce (sintético)
-        \end{itemize}
-
-        \column{0.5\textwidth}
-        \textbf{Parâmetros de agrupamento}
-        \begin{itemize}
-            \item $k = 10$ clusters
-            \item \texttt{maxIter} = 20 (execução completa)
-            \item \texttt{tolerance} = $10^{-6}$
-            \item JDK 25.0.1, 16 CPUs lógicas
-        \end{itemize}
+        \begin{column}{0.48\textwidth}
+            \textbf{Hardware}
+            \begin{itemize}
+                \item CPU: Intel Core i5-13450HX \\
+                      10 núcleos / \alert{16 threads}, 4,6 GHz
+                \item RAM: 16 GB DDR5 dual-channel
+                \item Disco: SSD NVMe 512 GB
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \textbf{Software}
+            \begin{itemize}
+                \item Ubuntu 24.04.4 LTS
+                \item Java: \alert{OpenJDK 25.0.1} (Temurin)
+                \item Erlang: \alert{OTP 25}, BEAM 13.2 \\
+                      JIT AsmJit habilitado
+            \end{itemize}
+        \end{column}
     \end{columns}
-
-    \medskip
-    \begin{table}
-        \centering
-        \tiny
-        \begin{tabular}{lrrrrrr}
-            \toprule
-            \textbf{order\_id} & \textbf{latitude} & \textbf{longitude} & \textbf{seller\_rating} & \textbf{shipping\_fee} & \textbf{items\_count} & \textbf{delivery\_hours} \\
-            \midrule
-            O-00000001 & 54.8877 & $-$1.6479 & 4.46 &  0.60 & 4 &  53 \\
-            O-00000002 & 51.4400 & $-$0.0266 & 4.30 &  9.65 & 8 &  58 \\
-            O-00000003 & 51.4070 & $-$2.4147 & 4.52 &  5.94 & 5 & 122 \\
-            \bottomrule
-        \end{tabular}
-        \caption*{\scriptsize Linhas de amostra (4 colunas de ID excluídas dos atributos; 38 colunas numéricas utilizadas)}
-    \end{table}
 \end{frame}
 
-\begin{frame}{Estratégia de Benchmarking}
-    \begin{table}
-        \centering
-        \begin{tabular}{lll}
-            \toprule
-            \textbf{Ferramenta} & \textbf{Finalidade} & \textbf{Config} \\
-            \midrule
-            JCStress & Detecção de race condition & 6 forks, 5 $\times$ 1s \\
-            JMH      & Microbenchmark (por operação) & 1 fork, 1wu + 3$\times$10s \\
-            JMeter   & Macrobenchmark (throughput) & 120s + 30s ramp \\
-            JFR      & Perfil de CPU e GC & \texttt{settings=profile} \\
-            \bottomrule
-        \end{tabular}
-    \end{table}
-
-    \medskip
+\begin{frame}{Erlang --- Características}
     \begin{itemize}
-        \item JMH mede custo de computação isolado (B1--B4)
-        \item JMeter mede throughput do sistema sob carga concorrente
-        \item JFR revela onde o tempo é efetivamente gasto
+        \item Linguagem funcional, roda na máquina virtual BEAM
+        \item Processos leves e isolados --- sem memória compartilhada
+        \item Comunicação exclusiva por troca de mensagens
+        \item GC por processo, sem pausas globais (\textit{stop-the-world})
     \end{itemize}
+\end{frame}
+
+\begin{frame}{Erlang --- Diferenças para Java}
+    \begin{itemize}
+        \item Sem \texttt{volatile}, mutexes ou semáforos
+        \item Race conditions \alert{impossíveis por construção} --- cada processo tem sua própria memória
+        \item Escala naturalmente para sistemas distribuídos sem mudar o modelo de programação
+    \end{itemize}
+
+    \vspace{1em}
+    \begin{block}{Por que usar Erlang neste projeto?}
+        Comparar dois modelos fundamentalmente diferentes de concorrência:
+        memória compartilhada (Java) vs.\ troca de mensagens (Erlang).
+    \end{block}
 \end{frame}
