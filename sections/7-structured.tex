@@ -1,0 +1,62 @@
+\section{Concorrente v4 --- Concorrência Estruturada}
+
+\begin{frame}{O que Mudou na v4}
+    \begin{itemize}
+        \item \texttt{StructuredTaskScope} + \texttt{ScopedValue} no lugar de
+              \texttt{ExecutorService} + \texttt{CountDownLatch}
+        \item Corrige um bug real da v3: exceção de um worker podia ser
+              perdida silenciosamente
+        \item Confinamento local por tarefa continua igual --- o algoritmo
+              não muda, só a coordenação
+    \end{itemize}
+
+    \vspace{0.8em}
+    \begin{block}{O que o StructuredTaskScope resolve}
+        \texttt{scope.join()} propaga a exceção original e cancela as
+        subtarefas irmãs automaticamente.
+    \end{block}
+\end{frame}
+
+\begin{frame}{Resultados v4 --- Microbenchmark}
+    \begin{center}
+    \begin{tabular}{lrr}
+        \toprule
+        & \textbf{v3} & \textbf{v4} \\
+        \midrule
+        B1 (s/op) & 4,55 & 7,08 \\
+        B2 (s/op) & 1,60 & \alert{1,98} \\
+        \bottomrule
+    \end{tabular}
+    \end{center}
+
+    \vspace{0.8em}
+    \begin{alertblock}{Diagnóstico}
+        B2 piora $\approx$\alert{24\%} --- custo das APIs de \textit{preview},
+        não um problema de design.
+    \end{alertblock}
+\end{frame}
+
+\begin{frame}{Resultados v4 --- Macrobenchmark}
+    \begin{itemize}
+        \item 1 thread: 52,5 $\to$ \alert{45,8 exec/min}
+        \item 16 threads: 62,3 $\to$ \alert{52,0 exec/min}
+        \item Apenas ParallelGC testado (mesma decisão para v5)
+    \end{itemize}
+
+    \vspace{0.8em}
+    \begin{block}{Por que caiu?}
+        O custo extra por iteração se propaga para o throughput agregado.
+    \end{block}
+\end{frame}
+
+\begin{frame}{Resultados v4 --- Condições de Corrida (JCStress)}
+    \begin{itemize}
+        \item Leitura concorrente de centróides: \textcolor{green!60!black}{\cmark\ segura}
+        \item Escrita em array compartilhado sem proteção: \textcolor{red}{\xmark\ até 30\% de atualizações perdidas}
+    \end{itemize}
+
+    \vspace{1em}
+    \begin{block}{Conclusão}
+        O confinamento local segue correto --- só a camada de coordenação mudou.
+    \end{block}
+\end{frame}

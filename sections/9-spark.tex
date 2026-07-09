@@ -1,0 +1,66 @@
+\section{v6 --- Spark (Processamento Distribuído)}
+
+\begin{frame}{Por que um Modelo Novo}
+    \begin{itemize}
+        \item v1--v5: threads coordenadas sobre memória compartilhada, uma
+              única JVM
+        \item v6: Apache Spark \texttt{local[*]}, \texttt{Dataset<Row>}
+              particionado
+        \item JDK 21 (não 25) --- exigência do Spark 4.0
+    \end{itemize}
+
+    \vspace{0.8em}
+    \begin{alertblock}{Nenhuma ferramenta antiga se aplica}
+        JMH, JMeter e JCStress não encaixam no modelo de execução do Spark.
+    \end{alertblock}
+\end{frame}
+
+\begin{frame}{Como Funciona --- Spark}
+    \begin{itemize}
+        \item \texttt{mapToPair} + \texttt{reduceByKey} por iteração --- mesmo
+              padrão de acumulação local das versões anteriores
+        \item \textit{Broadcast} do snapshot de centróides a cada iteração
+        \item Duas variantes testadas: \texttt{v6-csv} e \texttt{v6-parquet}
+              --- único código diferente é o formato de leitura
+    \end{itemize}
+
+    \vspace{0.8em}
+    \begin{block}{Métricas usadas}
+        Tempo de parede + profile JFR (sem JMH, JMeter ou JCStress).
+    \end{block}
+\end{frame}
+
+\begin{frame}{Resultados v6 --- Tempo de Parede}
+    \begin{center}
+    \begin{tabular}{lrr}
+        \toprule
+        & \textbf{Tempo total} & \textbf{Aprox./iteração} \\
+        \midrule
+        v6-csv     & 34.624 ms & 3,46 s \\
+        v6-parquet & 44.264 ms & \alert{4,43 s} \\
+        \bottomrule
+    \end{tabular}
+    \end{center}
+
+    \vspace{0.8em}
+    \begin{alertblock}{Mais lento que tudo}
+        Acima do B2 de v3/v4/v5 (1,6--2,0 s/iter) --- overhead distribuído
+        não compensa neste dataset, que cabe em uma única máquina.
+    \end{alertblock}
+\end{frame}
+
+\begin{frame}{Achado Curioso: Parquet foi Mais Lento}
+    \begin{itemize}
+        \item Parquet (colunar, comprimido) \alert{$\approx$28\% mais lento}
+              que CSV nesta carga
+        \item Causa: decodificar dicionário/delta custa mais CPU que ler
+              texto bruto
+        \item Bônus: sob pressão de memória, o cache do Spark degrada
+              devagar --- sem \texttt{OutOfMemoryError} como na v3
+    \end{itemize}
+
+    \vspace{0.8em}
+    \begin{block}{Mesma lição da versão serial}
+        Medir antes de assumir.
+    \end{block}
+\end{frame}

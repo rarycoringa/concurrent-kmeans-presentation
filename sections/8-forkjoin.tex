@@ -1,0 +1,53 @@
+\section{Concorrente v5 --- Fork/Join}
+
+\begin{frame}{O que Mudou na v5}
+    \begin{itemize}
+        \item Particionamento fixo (v3/v4) substituído por divisão recursiva
+              com \texttt{RecursiveTask}
+        \item \textit{Work-stealing}: threads ociosas roubam subtarefas de
+              outras threads
+        \item Limiar: \texttt{pontos / (núcleos $\times$ 4)} --- 4 subtarefas
+              por núcleo
+        \item \texttt{ScopedValue} da v4 mantido sem alterações
+    \end{itemize}
+
+    \vspace{0.8em}
+    \begin{block}{Sobre o limiar}
+        Sem teste de sensibilidade --- é uma escolha de design, não um
+        parâmetro ajustado empiricamente.
+    \end{block}
+\end{frame}
+
+\begin{frame}{Resultados v5 --- Microbenchmark}
+    \begin{center}
+    \begin{tabular}{lrr}
+        \toprule
+        & \textbf{v4} & \textbf{v5} \\
+        \midrule
+        B1 (s/op) & 7,08 & 5,72 \\
+        B2 (s/op) & 1,98 & \alert{1,78} \\
+        \bottomrule
+    \end{tabular}
+    \end{center}
+
+    \vspace{0.8em}
+    \begin{alertblock}{Achado}
+        Variância de B1 dispara: \alert{$\pm$16,08 s} --- mesmo ruído de
+        agendamento já visto na v2-virtual.
+    \end{alertblock}
+\end{frame}
+
+\begin{frame}{Resultados v5 --- Macrobenchmark}
+    \begin{itemize}
+        \item 1 thread: 45,8 $\to$ \alert{46,4 exec/min}
+        \item 16 threads: 52,0 $\to$ \alert{52,4 exec/min}
+        \item Praticamente igual à v4 em todos os níveis de carga
+    \end{itemize}
+
+    \vspace{0.8em}
+    \begin{block}{Por que não melhorou?}
+        Dataset uniforme não dá chance ao \textit{work-stealing} de mostrar
+        vantagem real --- não há desbalanceamento entre partições para
+        explorar.
+    \end{block}
+\end{frame}

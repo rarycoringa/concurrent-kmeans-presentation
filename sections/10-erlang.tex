@@ -1,0 +1,17 @@
+\section{Por que Não há v4, v5 ou v6 em Erlang}
+
+\begin{frame}{Por que Não há v4, v5 ou v6 em Erlang}
+    \begin{itemize}
+        \item v4 (\texttt{StructuredTaskScope}): coordena \emph{threads} ---
+              Erlang não tem esse problema
+        \item v5 (\emph{work-stealing}): a BEAM já escalona processos sozinha
+        \item v6 (Spark): distribui \emph{dados}; Erlang distribui
+              \emph{processos} --- modelos diferentes
+    \end{itemize}
+
+    \vspace{0.5em}
+    \begin{block}{Decisão}
+        A implementação Erlang para na v3 (dados em memória, atores). v4--v6
+        resolvem problemas específicos do Java que o modelo de atores já não tem.
+    \end{block}
+\end{frame}
